@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  BOOKED
+  MAINTENANCE
+  OUT_OF_SERVICE
+  INACTIVE
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ASSIGNED
+  ON_LEAVE
+  INACTIVE
+}
+
+enum BookingStatus {
+  DRAFT
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TripType {
+  CITY
+  OUTSIDE_CITY
+  OVERNIGHT
+}
+
+enum ExpenseType {
+  FUEL
+  TOLL
+  PARKING
+  ACCOMMODATION
+  MEAL
+  MAINTENANCE
+  OTHER
+}
+
+enum NotificationType {
+  SYSTEM
+  BOOKING
+  VEHICLE
+  DRIVER
+  REPORT
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  fullName     String    @db.VarChar(160)
+  email        String    @unique @db.VarChar(190)
+  passwordHash String
+  role         UserRole
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt    DateTime? @db.Timestamptz(3)
+
+  createdBookings Booking[]       @relation("BookingCreatedBy")
+  updatedBookings Booking[]       @relation("BookingUpdatedBy")
+  auditLogs       AuditLog[]
+  updatedSettings SystemSetting[] @relation("SystemSettingUpdatedBy")
+  notifications   Notification[]
+  authSessions    AuthSession[]
+
+  @@index([role])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model AuthSession {
+  id                    String    @id @default(uuid()) @db.Uuid
+  userId                String    @db.Uuid
+  refreshTokenHash      String    @unique
+  refreshTokenExpiresAt DateTime  @db.Timestamptz(3)
+  revokedAt             DateTime? @db.Timestamptz(3)
+  replacedByTokenHash   String?
+  ipAddress             String?   @db.VarChar(64)
+  userAgent             String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+  @@index([refreshTokenExpiresAt])
+  @@index([revokedAt])
+}
+
+model Vehicle {
+  id                String        @id @default(uuid()) @db.Uuid
+  plateNumber       String        @unique @db.VarChar(40)
+  make              String        @db.VarChar(100)
+  model             String        @db.VarChar(100)
+  year              Int
+  passengerCapacity Int
+  status            VehicleStatus @default(AVAILABLE)
+  notes             String?
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+  deletedAt         DateTime?     @db.Timestamptz(3)
+
+  bookings Booking[]
+
+  @@index([plateNumber])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Driver {
+  id                 String       @id @default(uuid()) @db.Uuid
+  fullName           String       @db.VarChar(160)
+  phoneNumber        String       @db.VarChar(40)
+  status             DriverStatus @default(AVAILABLE)
+  overnightDailyRate Decimal      @default(0) @db.Decimal(12, 2)
+  notes              String?
+  createdAt          DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt          DateTime?    @db.Timestamptz(3)
+
+  bookings Booking[]
+
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Customer {
+  id               String    @id @default(uuid()) @db.Uuid
+  fullName         String    @db.VarChar(160)
+  phoneCountryCode String    @db.VarChar(8)
+  phoneNumber      String    @db.VarChar(40)
+  nationality      String?   @db.VarChar(80)
+  notes            String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt        DateTime? @db.Timestamptz(3)
+
+  bookings Booking[]
+
+  @@index([fullName])
+  @@index([phoneCountryCode, phoneNumber])
+  @@index([deletedAt])
+}
+
+model Booking {
+  id                  String        @id @default(uuid()) @db.Uuid
+  voucherNumber       String        @unique @db.VarChar(80)
+  customerId          String        @db.Uuid
+  vehicleId           String        @db.Uuid
+  driverId            String        @db.Uuid
+  startAt             DateTime      @db.Timestamptz(3)
+  endAt               DateTime      @db.Timestamptz(3)
+  availabilityStartAt DateTime      @db.Timestamptz(3)
+  availabilityEndAt   DateTime      @db.Timestamptz(3)
+  tripType            TripType
+  destination         String        @db.VarChar(220)
+  status              BookingStatus @default(DRAFT)
+  notes               String?
+  createdById         String        @db.Uuid
+  updatedById         String?       @db.Uuid
+  createdAt           DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
+  cancelledAt         DateTime?     @db.Timestamptz(3)
+  deletedAt           DateTime?     @db.Timestamptz(3)
+
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vehicle        Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver         Driver          @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  createdBy      User            @relation("BookingCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      User?           @relation("BookingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  overnightStays OvernightStay[]
+  expenses       Expense[]
+
+  @@index([voucherNumber])
+  @@index([status])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([startAt, endAt])
+  @@index([availabilityStartAt, availabilityEndAt])
+  @@index([vehicleId, startAt, endAt])
+  @@index([driverId, startAt, endAt])
+  @@index([customerId, startAt])
+  @@index([deletedAt])
+}
+
+model OvernightStay {
+  id                String   @id @default(uuid()) @db.Uuid
+  bookingId         String   @db.Uuid
+  city              String   @db.VarChar(120)
+  accommodationName String?  @db.VarChar(180)
+  checkInDate       DateTime @db.Date
+  checkOutDate      DateTime @db.Date
+  nightsCount       Int
+  driverDailyRate   Decimal  @db.Decimal(12, 2)
+  totalDriverCost   Decimal  @db.Decimal(12, 2)
+  notes             String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@index([checkInDate, checkOutDate])
+}
+
+model Expense {
+  id          String      @id @default(uuid()) @db.Uuid
+  bookingId   String      @db.Uuid
+  type        ExpenseType
+  amount      Decimal     @db.Decimal(12, 2)
+  currency    String      @db.Char(3)
+  description String?
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([bookingId])
+  @@index([type])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String   @db.VarChar(120)
+  entityType String   @db.VarChar(120)
+  entityId   String?  @db.Uuid
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?  @db.VarChar(64)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(120)
+  value       Json
+  description String?
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation("SystemSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([key])
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(160)
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}

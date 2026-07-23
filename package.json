@@ -1,0 +1,32 @@
+{
+  "name": "alansari-luxury-travel",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev --workspace @alansari/api",
+    "dev:web": "npm run dev --workspace @alansari/web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prisma:generate": "npm run prisma:generate --workspace @alansari/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace @alansari/api",
+    "prisma:deploy": "npm run prisma:deploy --workspace @alansari/api",
+    "db:seed": "npm run db:seed --workspace @alansari/api",
+    "db:validate": "npm run db:validate --workspace @alansari/api"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
