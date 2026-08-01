@@ -1,6 +1,6 @@
 import type { BookingStatus, TripType, UserRole } from "@alansari/shared";
-import { getCsrfToken } from "../../lib/csrf";
 import { apiRequest } from "../../lib/api";
+import { getCsrfToken } from "../../lib/csrf";
 
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 

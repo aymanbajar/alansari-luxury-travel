@@ -17,4 +17,32 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.sidebar-scrollbar {
+  scrollbar-color: rgba(185, 137, 69, 0.42) transparent;
+  scrollbar-width: thin;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(185, 137, 69, 0.48);
+}
+
+.booking-dialog-shell {
+  height: min(900px, calc(100vh - 2rem));
+  max-height: calc(100vh - 2rem);
 }

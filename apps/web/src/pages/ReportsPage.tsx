@@ -1,13 +1,24 @@
-import { Download, FileSpreadsheet, FileText, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download, FileSpreadsheet, FileText, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import type { BookingStatus, TripType } from "@alansari/shared";
 import { bookingStatuses, tripTypes } from "@alansari/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActionButton,
+  EmptyState,
+  ErrorAlert,
+  fieldClasses,
+  FormField,
+  LoadingState,
+  PageHeader,
+  SectionCard,
+  SuccessAlert
+} from "../components/admin-ui";
+import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../features/auth/useAuth";
 import type { Customer } from "../features/customers/customers.api";
 import * as customersApi from "../features/customers/customers.api";
 import type { Driver, Vehicle } from "../features/fleet/fleet.types";
 import * as driversApi from "../features/fleet/drivers.api";
-import * as vehiclesApi from "../features/fleet/vehicles.api";
 import type {
   ReportDefinition,
   ReportFilters,
@@ -15,13 +26,14 @@ import type {
   ReportType
 } from "../features/reports/reports.api";
 import * as reportsApi from "../features/reports/reports.api";
+import * as vehiclesApi from "../features/fleet/vehicles.api";
 
 const statusLabels: Record<BookingStatus, string> = {
   DRAFT: "مسودة",
   CONFIRMED: "مؤكد",
   IN_PROGRESS: "قيد التنفيذ",
   COMPLETED: "مكتمل",
-  CANCELLED: "ملغي"
+  CANCELLED: "ملغى"
 };
 
 const tripLabels: Record<TripType, string> = {
@@ -38,6 +50,10 @@ function addDays(value: Date, days: number): Date {
   return new Date(value.getTime() + days * 86_400_000);
 }
 
+function startOfMonth(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth(), 1);
+}
+
 function displayValue(value: string | number | null): string {
   if (value === null || value === undefined) {
     return "";
@@ -45,75 +61,134 @@ function displayValue(value: string | number | null): string {
   return String(value);
 }
 
+function isStatusValue(value: string | number | null): value is BookingStatus {
+  return typeof value === "string" && bookingStatuses.includes(value as BookingStatus);
+}
+
+function isPaymentColumn(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return normalized.includes("paid") || normalized.includes("payment");
+}
+
+function isMoneyColumn(key: string, value: string | number | null): boolean {
+  const normalized = key.toLowerCase();
+  return (
+    typeof value === "number" ||
+    normalized.includes("amount") ||
+    normalized.includes("total") ||
+    normalized.includes("cost") ||
+    normalized.includes("revenue")
+  );
+}
+
+function safeReportError(fallback: string): string {
+  return fallback;
+}
+
+function createDefaultFilters(today = new Date()): ReportFilters {
+  return {
+    startDate: toDateInput(today),
+    endDate: toDateInput(addDays(today, 7)),
+    overnightOnly: false
+  };
+}
+
 export function ReportsPage() {
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
   const [definitions, setDefinitions] = useState<ReportDefinition[]>([]);
   const [selectedType, setSelectedType] = useState<ReportType>("daily-bookings");
-  const [filters, setFilters] = useState<ReportFilters>({
-    startDate: toDateInput(today),
-    endDate: toDateInput(addDays(today, 7)),
-    overnightOnly: false
-  });
+  const [filters, setFilters] = useState<ReportFilters>(() => createDefaultFilters(today));
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [preview, setPreview] = useState<ReportPreview | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [lastPreviewAt, setLastPreviewAt] = useState<string | null>(null);
+  const [isLoadingReferences, setIsLoadingReferences] = useState(true);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<"excel" | "pdf" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const visibleDefinitions = definitions.filter(
-    (definition) =>
-      !definition.restrictedTo || definition.restrictedTo.includes(user?.role ?? "STAFF")
+  const visibleDefinitions = useMemo(
+    () =>
+      definitions.filter(
+        (definition) =>
+          !definition.restrictedTo || definition.restrictedTo.includes(user?.role ?? "STAFF")
+      ),
+    [definitions, user?.role]
   );
   const selectedDefinition =
     visibleDefinitions.find((definition) => definition.type === selectedType) ??
     visibleDefinitions[0];
 
+  const activeFilterCount = [
+    filters.vehicleId,
+    filters.driverId,
+    filters.customerId,
+    filters.bookingStatus,
+    filters.tripType,
+    filters.destination,
+    filters.voucherNumber,
+    filters.overnightOnly ? "overnightOnly" : undefined
+  ].filter(Boolean).length;
+
+  const dateRangeError =
+    filters.startDate && filters.endDate && filters.startDate > filters.endDate
+      ? "تاريخ النهاية يجب أن يكون بعد تاريخ البداية."
+      : null;
+
   const loadReferences = useCallback(async () => {
-    const [reportResult, vehicleResult, driverResult, customerResult] = await Promise.all([
-      reportsApi.listReports(),
-      vehiclesApi.listVehicles({
-        page: 1,
-        pageSize: 100,
-        sortBy: "plateNumber",
-        sortDirection: "asc"
-      }),
-      driversApi.listDrivers({ page: 1, pageSize: 100, sortBy: "fullName", sortDirection: "asc" }),
-      customersApi.listCustomers({
-        page: 1,
-        pageSize: 100,
-        sortBy: "fullName",
-        sortDirection: "asc"
-      })
-    ]);
-    setDefinitions(reportResult.reports);
-    setVehicles(vehicleResult.vehicles);
-    setDrivers(driverResult.drivers);
-    setCustomers(customerResult.customers);
+    setIsLoadingReferences(true);
+    setError(null);
+    try {
+      const [reportResult, vehicleResult, driverResult, customerResult] = await Promise.all([
+        reportsApi.listReports(),
+        vehiclesApi.listVehicles({
+          page: 1,
+          pageSize: 100,
+          sortBy: "plateNumber",
+          sortDirection: "asc"
+        }),
+        driversApi.listDrivers({ page: 1, pageSize: 100, sortBy: "fullName", sortDirection: "asc" }),
+        customersApi.listCustomers({
+          page: 1,
+          pageSize: 100,
+          sortBy: "fullName",
+          sortDirection: "asc"
+        })
+      ]);
+      setDefinitions(reportResult.reports);
+      setVehicles(vehicleResult.vehicles);
+      setDrivers(driverResult.drivers);
+      setCustomers(customerResult.customers);
+    } catch {
+      setError(safeReportError("تعذر تحميل بيانات التقارير."));
+    } finally {
+      setIsLoadingReferences(false);
+    }
   }, []);
 
   const loadPreview = useCallback(async () => {
-    if (!selectedDefinition) {
+    if (!selectedDefinition || dateRangeError) {
       return;
     }
-    setIsLoading(true);
+    setIsLoadingPreview(true);
     setError(null);
+    setMessage(null);
     try {
       const result = await reportsApi.previewReport(selectedDefinition.type, filters);
       setPreview(result.report);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "تعذر تحميل التقرير.");
+      setLastPreviewAt(new Date().toISOString());
+    } catch {
+      setError(safeReportError("تعذر تحميل التقرير."));
     } finally {
-      setIsLoading(false);
+      setIsLoadingPreview(false);
     }
-  }, [filters, selectedDefinition]);
+  }, [dateRangeError, filters, selectedDefinition]);
 
   useEffect(() => {
-    void loadReferences().catch((caught: unknown) => {
-      setError(caught instanceof Error ? caught.message : "تعذر تحميل بيانات التقارير.");
-    });
+    void loadReferences();
   }, [loadReferences]);
 
   useEffect(() => {
@@ -126,250 +201,440 @@ export function ReportsPage() {
   }, [selectedType, visibleDefinitions]);
 
   useEffect(() => {
-    if (selectedDefinition) {
+    if (selectedDefinition && !preview && !isLoadingReferences) {
       void loadPreview();
     }
-  }, [loadPreview, selectedDefinition]);
+  }, [isLoadingReferences, loadPreview, preview, selectedDefinition]);
 
   async function exportReport(format: "excel" | "pdf"): Promise<void> {
-    if (!selectedDefinition) {
+    if (!selectedDefinition || dateRangeError) {
       return;
     }
-    setIsExporting(true);
+    setExportingFormat(format);
     setError(null);
+    setMessage(null);
     try {
       await reportsApi.downloadReport(selectedDefinition.type, filters, format);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "تعذر تصدير التقرير.");
+      setMessage(format === "excel" ? "تم إنشاء ملف Excel بنجاح." : "تم إنشاء ملف PDF بنجاح.");
+    } catch {
+      setError(safeReportError("تعذر إنشاء ملف التقرير. حاول مرة أخرى."));
     } finally {
-      setIsExporting(false);
+      setExportingFormat(null);
     }
   }
 
+  function resetFilters(): void {
+    setFilters(createDefaultFilters(today));
+  }
+
+  function applyPreset(preset: "today" | "last7" | "month"): void {
+    const now = new Date();
+    if (preset === "today") {
+      setFilters((current) => ({
+        ...current,
+        startDate: toDateInput(now),
+        endDate: toDateInput(now)
+      }));
+      return;
+    }
+    if (preset === "last7") {
+      setFilters((current) => ({
+        ...current,
+        startDate: toDateInput(addDays(now, -6)),
+        endDate: toDateInput(now)
+      }));
+      return;
+    }
+    setFilters((current) => ({
+      ...current,
+      startDate: toDateInput(startOfMonth(now)),
+      endDate: toDateInput(now)
+    }));
+  }
+
+  const canRunReport = Boolean(selectedDefinition) && !dateRangeError && !isLoadingReferences;
+  const previewDate = lastPreviewAt ? new Intl.DateTimeFormat("ar", { dateStyle: "medium", timeStyle: "short" }).format(new Date(lastPreviewAt)) : null;
+
   return (
-    <section className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">التقارير والتصدير</h1>
-        <p className="mt-1 text-olive">معاينة التقارير التشغيلية وتصديرها إلى Excel أو PDF.</p>
-      </div>
+    <section className="space-y-6">
+      <PageHeader
+        title="التقارير والتصدير"
+        description="استعرض بيانات التشغيل والحجوزات وصدّر النتائج بصيغ PDF أو Excel."
+      />
 
-      {error ? <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      {message ? <SuccessAlert message={message} /> : null}
+      {error ? <ErrorAlert message={error} /> : null}
 
-      <div className="grid gap-3 rounded-lg border border-olive/20 bg-white p-4 md:grid-cols-4 xl:grid-cols-6">
-        <label className="grid gap-1 md:col-span-2">
-          <span className="text-sm font-medium">نوع التقرير</span>
-          <select
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={selectedDefinition?.type ?? selectedType}
-            onChange={(event) => setSelectedType(event.target.value as ReportType)}
-          >
-            {visibleDefinitions.map((definition) => (
-              <option key={definition.type} value={definition.type}>
-                {definition.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">من</span>
-          <input
-            className="rounded-md border border-olive/30 px-3 py-2"
-            type="date"
-            value={filters.startDate}
-            onChange={(event) => setFilters({ ...filters, startDate: event.target.value })}
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">إلى</span>
-          <input
-            className="rounded-md border border-olive/30 px-3 py-2"
-            type="date"
-            value={filters.endDate}
-            onChange={(event) => setFilters({ ...filters, endDate: event.target.value })}
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">المركبة</span>
-          <select
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.vehicleId ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, vehicleId: event.target.value || undefined })
-            }
-          >
-            <option value="">كل المركبات</option>
-            {vehicles.map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.plateNumber}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">السائق</span>
-          <select
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.driverId ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, driverId: event.target.value || undefined })
-            }
-          >
-            <option value="">كل السائقين</option>
-            {drivers.map((driver) => (
-              <option key={driver.id} value={driver.id}>
-                {driver.fullName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">العميل</span>
-          <select
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.customerId ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, customerId: event.target.value || undefined })
-            }
-          >
-            <option value="">كل العملاء</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.fullName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">حالة الحجز</span>
-          <select
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.bookingStatus ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, bookingStatus: event.target.value as BookingStatus | "" })
-            }
-          >
-            <option value="">كل الحالات</option>
-            {bookingStatuses.map((status) => (
-              <option key={status} value={status}>
-                {statusLabels[status]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">نوع الرحلة</span>
-          <select
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.tripType ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, tripType: event.target.value as TripType | "" })
-            }
-          >
-            <option value="">كل الأنواع</option>
-            {tripTypes.map((tripType) => (
-              <option key={tripType} value={tripType}>
-                {tripLabels[tripType]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">الوجهة</span>
-          <input
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.destination ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, destination: event.target.value || undefined })
-            }
-          />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">الفاوتشر</span>
-          <input
-            className="rounded-md border border-olive/30 px-3 py-2"
-            value={filters.voucherNumber ?? ""}
-            onChange={(event) =>
-              setFilters({ ...filters, voucherNumber: event.target.value || undefined })
-            }
-          />
-        </label>
-        <label className="flex items-center gap-2 self-end rounded-md border border-olive/30 px-3 py-2">
-          <input
-            checked={filters.overnightOnly ?? false}
-            onChange={(event) => setFilters({ ...filters, overnightOnly: event.target.checked })}
-            type="checkbox"
-          />
-          مبيت فقط
-        </label>
-        <button
-          className="inline-flex items-center justify-center gap-2 self-end rounded-md bg-ink px-4 py-2 font-semibold text-white"
-          onClick={() => void loadPreview()}
-          type="button"
-        >
-          <Search size={18} aria-hidden="true" />
-          معاينة
-        </button>
-      </div>
+      <SectionCard
+        title="إعداد التقرير"
+        description="حدد نوع التقرير والفترة والفلاتر المطلوبة قبل المعاينة أو التصدير."
+        icon={<SlidersHorizontal size={21} aria-hidden="true" />}
+        actions={
+          activeFilterCount > 0 ? (
+            <span className="rounded-full bg-gold/10 px-3 py-2 text-sm font-bold text-gold">
+              {activeFilterCount} فلتر نشط
+            </span>
+          ) : null
+        }
+      >
+        {isLoadingReferences ? (
+          <LoadingState label="جاري تحميل خيارات التقارير..." />
+        ) : (
+          <div className="space-y-6">
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <FormField id="reportType" label="نوع التقرير">
+                <select
+                  id="reportType"
+                  className={`${fieldClasses} text-base font-bold`}
+                  value={selectedDefinition?.type ?? selectedType}
+                  onChange={(event) => {
+                    setSelectedType(event.target.value as ReportType);
+                    setPreview(null);
+                  }}
+                >
+                  {visibleDefinitions.map((definition) => (
+                    <option key={definition.type} value={definition.type}>
+                      {definition.title}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <div className="rounded-2xl border border-sea/15 bg-sea/5 p-4 text-sm leading-7 text-olive">
+                <p className="font-bold text-ink">{selectedDefinition?.title}</p>
+                <p>ستظهر المعاينة حسب الأعمدة والفلاتر التي يدعمها هذا التقرير.</p>
+              </div>
+            </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          className="inline-flex items-center gap-2 rounded-md bg-sea px-4 py-2 font-semibold text-white disabled:opacity-50"
-          disabled={isExporting || !preview}
-          onClick={() => void exportReport("excel")}
-          type="button"
-        >
-          <FileSpreadsheet size={18} aria-hidden="true" />
-          Excel
-        </button>
-        <button
-          className="inline-flex items-center gap-2 rounded-md border border-olive/30 px-4 py-2 font-semibold disabled:opacity-50"
-          disabled={isExporting || !preview}
-          onClick={() => void exportReport("pdf")}
-          type="button"
-        >
-          <FileText size={18} aria-hidden="true" />
-          PDF
-        </button>
-      </div>
+            <div>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-ink">الفترة الزمنية</h3>
+                <div className="flex flex-wrap gap-2">
+                  <ActionButton type="button" variant="secondary" onClick={() => applyPreset("today")}>
+                    اليوم
+                  </ActionButton>
+                  <ActionButton type="button" variant="secondary" onClick={() => applyPreset("last7")}>
+                    آخر 7 أيام
+                  </ActionButton>
+                  <ActionButton type="button" variant="secondary" onClick={() => applyPreset("month")}>
+                    هذا الشهر
+                  </ActionButton>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField id="startDate" label="من تاريخ">
+                  <input
+                    id="startDate"
+                    className={`${fieldClasses} text-left`}
+                    dir="ltr"
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(event) => setFilters({ ...filters, startDate: event.target.value })}
+                  />
+                </FormField>
+                <FormField id="endDate" label="إلى تاريخ" error={dateRangeError ?? undefined}>
+                  <input
+                    id="endDate"
+                    className={`${fieldClasses} text-left`}
+                    dir="ltr"
+                    type="date"
+                    value={filters.endDate}
+                    aria-invalid={Boolean(dateRangeError)}
+                    aria-describedby="endDate-error"
+                    onChange={(event) => setFilters({ ...filters, endDate: event.target.value })}
+                  />
+                </FormField>
+              </div>
+            </div>
 
-      <div className="rounded-lg border border-olive/20 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-olive/20 p-4">
-          <div>
-            <h2 className="font-bold">{preview?.definition.title ?? selectedDefinition?.title}</h2>
-            <p className="text-sm text-olive">
-              {preview
-                ? `عدد النتائج: ${preview.rowCount} - المعروض أول 100 سجل`
-                : "لا توجد معاينة بعد."}
-            </p>
+            <div>
+              <h3 className="mb-3 text-lg font-bold text-ink">الفلاتر التشغيلية</h3>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <FormField id="vehicleId" label="المركبة">
+                  <select
+                    id="vehicleId"
+                    className={fieldClasses}
+                    value={filters.vehicleId ?? ""}
+                    onChange={(event) =>
+                      setFilters({ ...filters, vehicleId: event.target.value || undefined })
+                    }
+                  >
+                    <option value="">كل المركبات</option>
+                    {vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.plateNumber}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField id="driverId" label="السائق">
+                  <select
+                    id="driverId"
+                    className={fieldClasses}
+                    value={filters.driverId ?? ""}
+                    onChange={(event) =>
+                      setFilters({ ...filters, driverId: event.target.value || undefined })
+                    }
+                  >
+                    <option value="">كل السائقين</option>
+                    {drivers.map((driver) => (
+                      <option key={driver.id} value={driver.id}>
+                        {driver.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField id="customerId" label="العميل">
+                  <select
+                    id="customerId"
+                    className={fieldClasses}
+                    value={filters.customerId ?? ""}
+                    onChange={(event) =>
+                      setFilters({ ...filters, customerId: event.target.value || undefined })
+                    }
+                  >
+                    <option value="">كل العملاء</option>
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField id="bookingStatus" label="حالة الحجز">
+                  <select
+                    id="bookingStatus"
+                    className={fieldClasses}
+                    value={filters.bookingStatus ?? ""}
+                    onChange={(event) =>
+                      setFilters({
+                        ...filters,
+                        bookingStatus: event.target.value as BookingStatus | ""
+                      })
+                    }
+                  >
+                    <option value="">كل الحالات</option>
+                    {bookingStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {statusLabels[status]}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField id="tripType" label="نوع الرحلة">
+                  <select
+                    id="tripType"
+                    className={fieldClasses}
+                    value={filters.tripType ?? ""}
+                    onChange={(event) =>
+                      setFilters({ ...filters, tripType: event.target.value as TripType | "" })
+                    }
+                  >
+                    <option value="">كل الأنواع</option>
+                    {tripTypes.map((tripType) => (
+                      <option key={tripType} value={tripType}>
+                        {tripLabels[tripType]}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField id="destination" label="الوجهة">
+                  <input
+                    id="destination"
+                    className={fieldClasses}
+                    value={filters.destination ?? ""}
+                    onChange={(event) =>
+                      setFilters({ ...filters, destination: event.target.value || undefined })
+                    }
+                    placeholder="مثال: الرياض"
+                  />
+                </FormField>
+
+                <FormField id="voucherNumber" label="الفاوتشر">
+                  <input
+                    id="voucherNumber"
+                    className={`${fieldClasses} text-left`}
+                    dir="ltr"
+                    value={filters.voucherNumber ?? ""}
+                    onChange={(event) =>
+                      setFilters({ ...filters, voucherNumber: event.target.value || undefined })
+                    }
+                    placeholder="VCH-1001"
+                  />
+                </FormField>
+
+                <label className="flex min-h-12 items-center gap-3 self-start rounded-xl border border-olive/25 bg-white px-4 py-3 text-sm font-bold text-ink transition focus-within:ring-4 focus-within:ring-sea/15 md:self-end">
+                  <input
+                    className="h-5 w-5 accent-sea"
+                    checked={filters.overnightOnly ?? false}
+                    onChange={(event) =>
+                      setFilters({ ...filters, overnightOnly: event.target.checked })
+                    }
+                    type="checkbox"
+                  />
+                  مبيت فقط
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-2xl border border-olive/15 bg-paper/60 p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="text-sm leading-7 text-olive">
+                <p className="font-bold text-ink">إجراءات التقرير</p>
+                <p>استخدم المعاينة أولا للتأكد من النتائج، ثم صدّر الملف المطلوب.</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3 lg:flex">
+                <ActionButton
+                  type="button"
+                  isLoading={isLoadingPreview}
+                  disabled={!canRunReport || isLoadingPreview}
+                  onClick={() => void loadPreview()}
+                >
+                  <Search size={18} aria-hidden="true" />
+                  {isLoadingPreview ? "جار تحميل المعاينة..." : "معاينة التقرير"}
+                </ActionButton>
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  isLoading={exportingFormat === "excel"}
+                  disabled={!canRunReport || !preview || Boolean(exportingFormat)}
+                  onClick={() => void exportReport("excel")}
+                >
+                  <FileSpreadsheet size={18} aria-hidden="true" />
+                  {exportingFormat === "excel" ? "جار إنشاء ملف Excel..." : "تصدير Excel"}
+                </ActionButton>
+                <ActionButton
+                  type="button"
+                  variant="secondary"
+                  isLoading={exportingFormat === "pdf"}
+                  disabled={!canRunReport || !preview || Boolean(exportingFormat)}
+                  onClick={() => void exportReport("pdf")}
+                >
+                  <FileText size={18} aria-hidden="true" />
+                  {exportingFormat === "pdf" ? "جار إنشاء ملف PDF..." : "تصدير PDF"}
+                </ActionButton>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <ActionButton type="button" variant="ghost" onClick={resetFilters}>
+                <RotateCcw size={17} aria-hidden="true" />
+                إعادة تعيين
+              </ActionButton>
+            </div>
           </div>
-          <Download className="text-sea" size={22} aria-hidden="true" />
+        )}
+      </SectionCard>
+
+      <ReportResults
+        preview={preview}
+        isLoading={isLoadingPreview}
+        selectedDefinition={selectedDefinition}
+        startDate={filters.startDate}
+        endDate={filters.endDate}
+        activeFilterCount={activeFilterCount}
+        lastPreviewAt={previewDate}
+        onRetry={() => void loadPreview()}
+        onReset={resetFilters}
+      />
+    </section>
+  );
+}
+
+function ReportResults({
+  preview,
+  isLoading,
+  selectedDefinition,
+  startDate,
+  endDate,
+  activeFilterCount,
+  lastPreviewAt,
+  onRetry,
+  onReset
+}: {
+  preview: ReportPreview | null;
+  isLoading: boolean;
+  selectedDefinition?: ReportDefinition;
+  startDate: string;
+  endDate: string;
+  activeFilterCount: number;
+  lastPreviewAt: string | null;
+  onRetry: () => void;
+  onReset: () => void;
+}) {
+  const totals = preview ? Object.entries(preview.totals) : [];
+
+  return (
+    <SectionCard
+      title="نتائج التقرير"
+      description={
+        preview
+          ? `${preview.definition.title} من ${startDate} إلى ${endDate}. عدد السجلات: ${preview.rowCount}.`
+          : selectedDefinition?.title ?? "اختر نوع التقرير ثم اضغط معاينة."
+      }
+      icon={<Download size={21} aria-hidden="true" />}
+      actions={
+        <ActionButton type="button" variant="secondary" onClick={onRetry} disabled={!selectedDefinition}>
+          <Search size={17} aria-hidden="true" />
+          تحديث المعاينة
+        </ActionButton>
+      }
+    >
+      {isLoading ? (
+        <LoadingState label="جاري تحميل المعاينة..." />
+      ) : !preview ? (
+        <EmptyState
+          title="لا توجد معاينة بعد"
+          description="حدد الفلاتر المطلوبة واضغط معاينة التقرير لعرض النتائج."
+        />
+      ) : preview.rows.length === 0 ? (
+        <div className="space-y-4">
+          <EmptyState
+            title="لا توجد بيانات"
+            description="لا توجد نتائج مطابقة للفترة والفلاتر المحددة."
+          />
+          <div className="flex justify-center">
+            <ActionButton type="button" variant="secondary" onClick={onReset}>
+              إعادة تعيين الفلاتر
+            </ActionButton>
+          </div>
         </div>
-        {isLoading ? <p className="p-4 text-olive">جاري تحميل المعاينة...</p> : null}
-        {!isLoading && preview?.rows.length === 0 ? (
-          <p className="p-4 text-olive">لا توجد بيانات مطابقة للفلاتر الحالية.</p>
-        ) : null}
-        {preview && preview.rows.length > 0 ? (
-          <div className="overflow-x-auto">
+      ) : (
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard label="عدد النتائج" value={preview.rowCount} />
+            <SummaryCard label="الفلاتر النشطة" value={activeFilterCount} />
+            {lastPreviewAt ? <SummaryCard label="آخر معاينة" value={lastPreviewAt} /> : null}
+            {totals.slice(0, 3).map(([key, value]) => (
+              <SummaryCard key={key} label={key} value={value} />
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-2xl border border-olive/15 lg:block">
             <table className="w-full min-w-[1100px] text-right text-sm">
-              <thead className="bg-olive/10">
+              <thead className="bg-paper text-ink">
                 <tr>
                   {preview.definition.columns.map((column) => (
-                    <th className="p-3" key={column.key}>
+                    <th className="px-4 py-4 font-bold" key={column.key}>
                       {column.label}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-olive/10">
                 {preview.rows.map((row, index) => (
-                  <tr className="border-t border-olive/10" key={index}>
+                  <tr className="transition hover:bg-paper/70" key={index}>
                     {preview.definition.columns.map((column) => (
                       <td
-                        className="max-w-72 truncate p-3"
+                        className="max-w-72 truncate px-4 py-4 text-ink"
                         key={column.key}
                         title={displayValue(row[column.key])}
+                        dir={column.type === "number" || column.type === "money" ? "ltr" : "rtl"}
                       >
-                        {displayValue(row[column.key])}
+                        <ReportCell columnKey={column.key} value={row[column.key]} />
                       </td>
                     ))}
                   </tr>
@@ -377,8 +642,51 @@ export function ReportsPage() {
               </tbody>
             </table>
           </div>
-        ) : null}
-      </div>
-    </section>
+
+          <div className="grid gap-3 lg:hidden">
+            {preview.rows.map((row, index) => (
+              <article className="rounded-2xl border border-olive/15 bg-paper/60 p-4" key={index}>
+                {preview.definition.columns.slice(0, 6).map((column) => (
+                  <div className="flex items-start justify-between gap-3 border-b border-olive/10 py-2 last:border-b-0" key={column.key}>
+                    <span className="text-sm font-bold text-olive">{column.label}</span>
+                    <span className="max-w-[58%] break-words text-left text-sm font-semibold text-ink">
+                      <ReportCell columnKey={column.key} value={row[column.key]} />
+                    </span>
+                  </div>
+                ))}
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-olive/15 bg-paper/70 p-4">
+      <p className="text-sm font-bold text-olive">{label}</p>
+      <p className="mt-2 text-xl font-bold text-ink" dir={typeof value === "number" ? "ltr" : "rtl"}>
+        {String(value)}
+      </p>
+    </div>
+  );
+}
+
+function ReportCell({ columnKey, value }: { columnKey: string; value: string | number | null }) {
+  if (isStatusValue(value)) {
+    return <StatusBadge status={value} />;
+  }
+
+  if (isPaymentColumn(columnKey)) {
+    const paid = String(value).toLowerCase() === "true" || String(value).includes("مدفوع");
+    return <StatusBadge status={paid ? "ACTIVE" : "DISABLED"} />;
+  }
+
+  return (
+    <span dir={isMoneyColumn(columnKey, value) ? "ltr" : "rtl"}>
+      {displayValue(value)}
+    </span>
   );
 }

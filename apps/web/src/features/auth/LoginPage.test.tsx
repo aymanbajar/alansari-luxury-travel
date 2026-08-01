@@ -25,7 +25,7 @@ describe("LoginPage", () => {
       </AuthContext.Provider>
     );
 
-    await userEvent.click(screen.getByRole("button"));
+    await userEvent.click(screen.getByRole("button", { name: /تسجيل الدخول/ }));
 
     expect(login).not.toHaveBeenCalled();
     expect(await screen.findAllByText(/مطلوبة|صحيح/)).not.toHaveLength(0);
