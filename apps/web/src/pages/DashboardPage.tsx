@@ -1,10 +1,14 @@
 import {
   AlertTriangle,
   BedDouble,
+  CalendarDays,
   CalendarClock,
   CarFront,
   Clock3,
+  Filter,
   RefreshCw,
+  Search,
+  SlidersHorizontal,
   UserRoundCheck
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -466,152 +470,188 @@ export function DashboardPage() {
         </section>
       </div>
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">الخط الزمني للمركبات</h2>
-          <p className="text-sm text-olive">
-            يعرض حتى 60 مركبة مع حجز الموارد حسب فترة الإتاحة المخزنة.
-          </p>
-        </div>
+      <section className="space-y-4">
+        <div className="overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-xl shadow-ink/5 backdrop-blur">
+          <div className="border-b border-olive/10 bg-gradient-to-l from-paper/80 via-white/80 to-sea/5 px-5 py-5 sm:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sea/10 text-sea shadow-sm">
+                  <SlidersHorizontal size={22} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 className="text-2xl font-black text-ink">الخط الزمني للمركبات</h2>
+                  <p className="mt-1 max-w-3xl text-sm leading-7 text-olive">
+                    يعرض حتى 60 مركبة مع حجز الموارد حسب فترة الإتاحة المخزنة، مع مرشحات دقيقة للبحث السريع.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-olive/20 bg-white px-4 py-2.5 text-sm font-bold text-ink shadow-sm shadow-ink/5 transition hover:-translate-y-0.5 hover:border-gold/35 hover:bg-paper focus:outline-none focus:ring-4 focus:ring-sea/15 active:translate-y-0"
+                onClick={() => void loadDashboard()}
+                type="button"
+              >
+                <RefreshCw size={17} aria-hidden="true" />
+                تحديث الخط الزمني
+              </button>
+            </div>
+          </div>
 
-        <div className="grid gap-3 rounded-lg border border-olive/20 bg-white p-4 md:grid-cols-4 xl:grid-cols-8">
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">من</span>
-            <input
-              className="rounded-md border border-olive/30 px-3 py-2"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-            />
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">إلى</span>
-            <input
-              className="rounded-md border border-olive/30 px-3 py-2"
-              type="date"
-              value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
-            />
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">العرض</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={view}
-              onChange={(event) => setView(event.target.value as TimelineQuery["view"])}
-            >
-              <option value="day">يومي</option>
-              <option value="week">أسبوعي</option>
-              <option value="month">شهري</option>
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">المركبة</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={vehicleId}
-              onChange={(event) => setVehicleId(event.target.value)}
-            >
-              <option value="">كل المركبات</option>
-              {vehicles.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.plateNumber}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">حالة المركبة</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={vehicleStatus}
-              onChange={(event) => setVehicleStatus(event.target.value as VehicleStatus | "")}
-            >
-              <option value="">كل الحالات</option>
-              {vehicleStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {vehicleStatusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">السائق</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={driverId}
-              onChange={(event) => setDriverId(event.target.value)}
-            >
-              <option value="">كل السائقين</option>
-              {drivers.map((driver) => (
-                <option key={driver.id} value={driver.id}>
-                  {driver.fullName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">العميل</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={customerId}
-              onChange={(event) => setCustomerId(event.target.value)}
-            >
-              <option value="">كل العملاء</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.fullName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">حالة الحجز</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={bookingStatus}
-              onChange={(event) => setBookingStatus(event.target.value as BookingStatus | "")}
-            >
-              <option value="">كل الحالات</option>
-              {bookingStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {statusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">نوع الرحلة</span>
-            <select
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={tripType}
-              onChange={(event) => setTripType(event.target.value as TripType | "")}
-            >
-              <option value="">كل الأنواع</option>
-              {tripTypes.map((type) => (
-                <option key={type} value={type}>
-                  {tripLabels[type]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">الفاوتشر</span>
-            <input
-              className="rounded-md border border-olive/30 px-3 py-2"
-              value={voucherNumber}
-              onChange={(event) => setVoucherNumber(event.target.value)}
-              placeholder="بحث"
-            />
-          </label>
-          <label className="flex items-center gap-2 self-end rounded-md border border-olive/30 px-3 py-2">
-            <input
-              checked={overnightOnly}
-              onChange={(event) => setOvernightOnly(event.target.checked)}
-              type="checkbox"
-            />
-            مبيت فقط
-          </label>
+          <div className="grid gap-4 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-4">
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">من تاريخ</span>
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-olive" size={18} aria-hidden="true" />
+                <input
+                  className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 pr-11 text-left text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                  dir="ltr"
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </div>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">إلى تاريخ</span>
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-olive" size={18} aria-hidden="true" />
+                <input
+                  className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 pr-11 text-left text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                  dir="ltr"
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                />
+              </div>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">طريقة العرض</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={view}
+                onChange={(event) => setView(event.target.value as TimelineQuery["view"])}
+              >
+                <option value="day">يومي</option>
+                <option value="week">أسبوعي</option>
+                <option value="month">شهري</option>
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">المركبة</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={vehicleId}
+                onChange={(event) => setVehicleId(event.target.value)}
+              >
+                <option value="">كل المركبات</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.plateNumber}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">حالة المركبة</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={vehicleStatus}
+                onChange={(event) => setVehicleStatus(event.target.value as VehicleStatus | "")}
+              >
+                <option value="">كل الحالات</option>
+                {vehicleStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {vehicleStatusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">السائق</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={driverId}
+                onChange={(event) => setDriverId(event.target.value)}
+              >
+                <option value="">كل السائقين</option>
+                {drivers.map((driver) => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">العميل</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={customerId}
+                onChange={(event) => setCustomerId(event.target.value)}
+              >
+                <option value="">كل العملاء</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">حالة الحجز</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={bookingStatus}
+                onChange={(event) => setBookingStatus(event.target.value as BookingStatus | "")}
+              >
+                <option value="">كل الحالات</option>
+                {bookingStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-sm font-bold text-ink">نوع الرحلة</span>
+              <select
+                className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                value={tripType}
+                onChange={(event) => setTripType(event.target.value as TripType | "")}
+              >
+                <option value="">كل الأنواع</option>
+                {tripTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {tripLabels[type]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 md:col-span-2 xl:col-span-2">
+              <span className="text-sm font-bold text-ink">رقم الفاوتشر</span>
+              <div className="relative">
+                <Search className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-olive" size={18} aria-hidden="true" />
+                <input
+                  className="min-h-12 w-full rounded-xl border border-olive/20 bg-white/95 px-4 py-3 pr-11 text-left text-sm font-semibold text-ink shadow-sm shadow-ink/5 outline-none transition placeholder:text-olive/45 hover:border-gold/35 focus:border-sea focus:ring-4 focus:ring-sea/15"
+                  dir="ltr"
+                  value={voucherNumber}
+                  onChange={(event) => setVoucherNumber(event.target.value)}
+                  placeholder="ALT-2026-0801"
+                />
+              </div>
+            </label>
+            <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 self-end rounded-xl border border-olive/20 bg-paper/70 px-4 py-3 shadow-sm shadow-ink/5 transition hover:border-gold/35 hover:bg-white focus-within:ring-4 focus-within:ring-sea/15">
+              <span className="flex items-center gap-2 text-sm font-black text-ink">
+                <Filter size={18} className="text-sea" aria-hidden="true" />
+                مبيت فقط
+              </span>
+              <input
+                className="peer sr-only"
+                checked={overnightOnly}
+                onChange={(event) => setOvernightOnly(event.target.checked)}
+                type="checkbox"
+              />
+              <span className="relative h-6 w-11 rounded-full bg-olive/25 transition peer-checked:bg-sea after:absolute after:right-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-[-1.25rem]" />
+            </label>
+          </div>
         </div>
 
         <div className="md:hidden rounded-lg border border-olive/20 bg-white p-4">

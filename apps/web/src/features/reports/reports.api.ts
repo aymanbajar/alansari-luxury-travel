@@ -1,6 +1,7 @@
 import type { BookingStatus, TripType, UserRole } from "@alansari/shared";
 import { apiRequest } from "../../lib/api";
 import { getCsrfToken } from "../../lib/csrf";
+import { isMockDataEnabled } from "../../lib/mockConfig";
 
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
@@ -84,6 +85,11 @@ export async function downloadReport(
   filters: ReportFilters,
   format: "excel" | "pdf"
 ): Promise<void> {
+  if (isMockDataEnabled) {
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
+    return;
+  }
+
   const csrfToken = getCsrfToken();
   const response = await fetch(
     `${apiBaseUrl}/reports/${type}/export?${toQueryString({ ...filters, format })}`,

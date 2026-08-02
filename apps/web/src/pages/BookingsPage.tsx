@@ -6,12 +6,15 @@ import {
   BedDouble,
   CalendarClock,
   CarFront,
+  CheckCircle2,
   Clock3,
+  Copy,
   Edit,
   Eye,
   Filter,
   Loader2,
   MapPin,
+  MoreVertical,
   Plus,
   RefreshCw,
   Search,
@@ -892,6 +895,7 @@ export function BookingsPage() {
         title="قائمة الحجوزات"
         description={`يعرض الجدول ${bookings.length} حجز من أصل ${totalCount} نتيجة.`}
         icon={<CalendarClock size={21} aria-hidden="true" />}
+        className="overflow-hidden"
         actions={
           <ActionButton type="button" variant="secondary" isLoading={isLoading} onClick={() => void loadBookings()}>
             <RefreshCw size={17} aria-hidden="true" />
@@ -908,9 +912,9 @@ export function BookingsPage() {
           />
         ) : (
           <>
-            <div className="hidden overflow-x-auto rounded-2xl border border-olive/15 lg:block">
-              <table className="w-full min-w-[980px] text-right text-sm">
-                <thead className="bg-paper text-ink">
+            <div className="booking-table-scroll overflow-x-auto rounded-2xl border border-olive/15 bg-white shadow-sm shadow-ink/5">
+              <table className="booking-list-table w-full min-w-[1080px] text-right text-sm">
+                <thead className="bg-gradient-to-l from-paper via-white to-sea/5 text-ink">
                   <tr>
                     <th className="px-4 py-4 font-bold">الفاوتشر</th>
                     <th className="px-4 py-4 font-bold">العميل</th>
@@ -923,10 +927,10 @@ export function BookingsPage() {
                 </thead>
                 <tbody className="divide-y divide-olive/10">
                   {bookings.map((booking) => (
-                    <tr className="transition hover:bg-paper/70" key={booking.id}>
+                    <tr className="group transition hover:bg-paper/70" key={booking.id}>
                       <td className="px-4 py-4">
                         <button
-                          className="font-bold text-sea hover:text-ink focus:outline-none focus:ring-4 focus:ring-sea/15"
+                          className="inline-flex rounded-full border border-sea/15 bg-sea/10 px-3 py-1.5 text-sm font-black text-sea shadow-sm transition hover:border-gold/30 hover:bg-gold/10 hover:text-ink focus:outline-none focus:ring-4 focus:ring-sea/15"
                           type="button"
                           dir="ltr"
                           onClick={() => setSelected(booking)}
@@ -934,7 +938,7 @@ export function BookingsPage() {
                           {booking.voucherNumber}
                         </button>
                         {booking.overnightStay || booking.tripType === "OVERNIGHT" ? (
-                          <span className="mt-2 flex w-fit items-center gap-1 rounded-full bg-sea/10 px-2.5 py-1 text-xs font-bold text-sea">
+                          <span className="mt-2 flex w-fit items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-800">
                             <BedDouble size={13} aria-hidden="true" />
                             مبيت
                           </span>
@@ -963,10 +967,11 @@ export function BookingsPage() {
                         <StatusBadge status={booking.status} />
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="booking-table-actions flex items-center gap-1.5">
                           <ActionButton
                             type="button"
                             variant="secondary"
+                            className="h-10 rounded-lg px-3 text-xs"
                             onClick={() => setSelected(booking)}
                           >
                             تفاصيل
@@ -974,7 +979,7 @@ export function BookingsPage() {
                           <ActionButton
                             type="button"
                             variant="secondary"
-                            className="h-11 w-11 px-0"
+                            className="h-10 w-10 rounded-lg px-0"
                             onClick={() => edit(booking)}
                             aria-label={`تعديل الحجز ${booking.voucherNumber}`}
                             title="تعديل"
@@ -982,7 +987,7 @@ export function BookingsPage() {
                             <Edit size={17} aria-hidden="true" />
                           </ActionButton>
                           <select
-                            className={`${fieldClasses} min-h-11 w-36 py-2`}
+                            className={`${fieldClasses} min-h-10 w-36 rounded-lg py-2 text-xs`}
                             value={booking.status}
                             aria-label={`تغيير حالة الحجز ${booking.voucherNumber}`}
                             onChange={(event) =>
@@ -1001,7 +1006,7 @@ export function BookingsPage() {
                           <ActionButton
                             type="button"
                             variant="danger"
-                            className="h-11 w-11 px-0"
+                            className="h-10 w-10 rounded-lg px-0"
                             disabled={booking.status === "CANCELLED"}
                             onClick={() => setCancelTarget(booking)}
                             aria-label={`إلغاء الحجز ${booking.voucherNumber}`}
@@ -1017,51 +1022,87 @@ export function BookingsPage() {
               </table>
             </div>
 
-            <div className="grid gap-3 lg:hidden">
+            <div className="hidden">
               {bookings.map((booking) => (
                 <article
-                  className="rounded-2xl border border-olive/15 bg-paper/60 p-4"
+                  className="booking-card-grid rounded-2xl border border-olive/15 bg-white/95 p-5 shadow-lg shadow-ink/5 transition duration-200 hover:-translate-y-0.5 hover:border-gold/25 hover:shadow-xl hover:shadow-ink/10"
                   key={booking.id}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                   <div className="booking-card-identity flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <button
                         type="button"
-                        className="font-bold text-sea"
+                        className="text-base font-black text-sea transition hover:text-ink focus:outline-none focus:ring-4 focus:ring-sea/15"
                         dir="ltr"
                         onClick={() => setSelected(booking)}
                       >
                         {booking.voucherNumber}
                       </button>
+                      <button
+                        type="button"
+                        className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-olive/15 bg-paper/70 text-olive transition hover:border-gold/30 hover:bg-gold/10 hover:text-gold focus:outline-none focus:ring-4 focus:ring-gold/20"
+                        aria-label={`نسخ رقم الفاتورة ${booking.voucherNumber}`}
+                        title="نسخ رقم الفاتورة"
+                        onClick={() => void navigator.clipboard?.writeText(booking.voucherNumber)}
+                      >
+                        <Copy size={15} aria-hidden="true" />
+                      </button>
+                      <p className="text-xs font-black text-olive">رقم الفاتورة</p>
                       <h3 className="mt-2 font-bold text-ink">{booking.customer.fullName}</h3>
+                      <p className="mt-1 text-xs font-semibold text-olive" dir="ltr">
+                        {booking.customer.phoneCountryCode} {booking.customer.phoneNumber}
+                      </p>
                     </div>
                     <StatusBadge status={booking.status} />
                   </div>
-                  <div className="mt-4 grid gap-2 text-sm text-olive">
+                  <div className="mt-4 grid gap-3 rounded-2xl bg-paper/70 p-3 text-sm text-olive">
                     <p>
                       <span className="font-bold text-ink">البداية: </span>
                       {dateFormatter.format(new Date(booking.startAt))}
+                      <span className="mt-1 block">
+                        <span className="font-bold text-ink">إلى: </span>
+                        {dateFormatter.format(new Date(booking.endAt))}
+                      </span>
                     </p>
                     <p>
                       <span className="font-bold text-ink">المركبة: </span>
                       <span dir="ltr">{booking.vehicle.plateNumber}</span>
+                      <span className="mt-1 block text-xs text-olive">
+                        {booking.vehicle.make} {booking.vehicle.model}
+                      </span>
                     </p>
                     <p>
                       <span className="font-bold text-ink">السائق: </span>
                       {booking.driver.fullName}
                     </p>
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <ActionButton type="button" variant="secondary" onClick={() => setSelected(booking)}>
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-olive/10 pt-4">
+                    <ActionButton type="button" className="h-10 rounded-lg px-3 text-xs" onClick={() => setSelected(booking)}>
                       <Eye size={17} aria-hidden="true" />
                       تفاصيل
                     </ActionButton>
-                    <ActionButton type="button" variant="secondary" onClick={() => edit(booking)}>
+                    <ActionButton type="button" variant="secondary" className="h-10 w-10 rounded-lg px-0" title="تعديل" aria-label={`تعديل الحجز ${booking.voucherNumber}`} onClick={() => edit(booking)}>
                       <Edit size={17} aria-hidden="true" />
                       تعديل
                     </ActionButton>
+                    <ActionButton
+                      type="button"
+                      variant="secondary"
+                      className="h-10 w-10 rounded-lg px-0 text-emerald-700"
+                      disabled={booking.status === "COMPLETED" || booking.status === "CANCELLED"}
+                      title="تحديد كمكتمل"
+                      aria-label={`تحديد الحجز ${booking.voucherNumber} كمكتمل`}
+                      onClick={() => setStatusAction({ booking, status: "COMPLETED" })}
+                    >
+                      <CheckCircle2 size={17} aria-hidden="true" />
+                    </ActionButton>
+                    <details className="relative">
+                      <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-olive/20 bg-white text-olive shadow-sm shadow-ink/5 transition hover:border-gold/35 hover:bg-paper hover:text-ink focus:outline-none focus:ring-4 focus:ring-sea/15 [&::-webkit-details-marker]:hidden" title="المزيد" aria-label={`المزيد للحجز ${booking.voucherNumber}`}>
+                        <MoreVertical size={17} aria-hidden="true" />
+                      </summary>
+                      <div className="absolute left-0 z-20 mt-2 w-44 rounded-xl border border-olive/15 bg-white p-2 shadow-xl shadow-ink/15">
                     <select
-                      className={`${fieldClasses} col-span-2 sm:col-span-1`}
+                      className={`${fieldClasses} min-h-10 rounded-lg py-2 text-xs`}
                       value={booking.status}
                       aria-label={`تغيير حالة الحجز ${booking.voucherNumber}`}
                       onChange={(event) =>
@@ -1074,10 +1115,15 @@ export function BookingsPage() {
                         </option>
                       ))}
                     </select>
+                      </div>
+                    </details>
                     <ActionButton
                       type="button"
                       variant="danger"
+                      className="h-10 w-10 rounded-lg px-0"
                       disabled={booking.status === "CANCELLED"}
+                      title="إلغاء"
+                      aria-label={`إلغاء الحجز ${booking.voucherNumber}`}
                       onClick={() => setCancelTarget(booking)}
                     >
                       <Ban size={17} aria-hidden="true" />

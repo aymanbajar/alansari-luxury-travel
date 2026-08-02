@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { useAuth } from "./useAuth";
 
 const schema = z.object({
@@ -115,6 +116,9 @@ export function LoginPage() {
   return (
     <main className="relative min-h-dvh overflow-x-hidden bg-[linear-gradient(135deg,#fbf7ee_0%,#f2eee3_46%,#eef5f2_100%)] px-4 py-4 text-ink sm:px-6 sm:py-5 lg:px-8 lg:py-6 [@media(max-height:820px)]:py-3">
       <div className="pointer-events-none absolute inset-0 opacity-60 [background-image:linear-gradient(rgba(24,35,31,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(24,35,31,0.045)_1px,transparent_1px)] [background-size:42px_42px]" />
+      <div className="relative z-20 mx-auto mb-3 flex w-full max-w-[1200px] justify-end">
+        <ThemeToggle />
+      </div>
       <div className="relative mx-auto grid min-h-0 w-full max-w-[1200px] items-start gap-5 lg:min-h-[calc(100dvh-3rem)] lg:grid-cols-[minmax(360px,0.85fr)_minmax(500px,1.15fr)] lg:items-center lg:gap-6 xl:gap-8 [@media(max-height:820px)]:lg:min-h-[calc(100dvh-1.5rem)] [@media(max-height:820px)]:gap-4">
         <BrandPanel />
 

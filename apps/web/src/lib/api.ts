@@ -1,4 +1,6 @@
 import { getCsrfToken } from "./csrf";
+import { isMockDataEnabled } from "./mockConfig";
+import { mockApiRequest } from "../mocks/mockApi";
 
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
 
@@ -34,6 +36,10 @@ export async function apiRequest<TData>(
   init: RequestInit = {},
   retry = true
 ): Promise<TData> {
+  if (isMockDataEnabled) {
+    return mockApiRequest<TData>(path, init);
+  }
+
   const method = init.method?.toUpperCase() ?? "GET";
   const csrfToken = getCsrfToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {

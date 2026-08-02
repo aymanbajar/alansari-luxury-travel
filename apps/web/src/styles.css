@@ -3,14 +3,37 @@
 @tailwind utilities;
 
 :root {
-  color: #18231f;
-  background: #f7f5ef;
+  --color-ink: #17211e;
+  --color-paper: #f7f3ea;
+  --color-surface: #ffffff;
+  --color-surface-soft: #fbfaf6;
+  --color-olive: #536a55;
+  --color-gold: #b98945;
+  --color-sea: #236477;
+  --color-border: rgba(83, 106, 85, 0.18);
+  --color-shadow: rgba(23, 33, 30, 0.08);
+  color: var(--color-ink);
+  background: var(--color-paper);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
+:root.dark {
+  --color-ink: #edf3ef;
+  --color-paper: #101714;
+  --color-surface: #17211d;
+  --color-surface-soft: #1d2924;
+  --color-olive: #aab7a5;
+  --color-gold: #d7ad72;
+  --color-sea: #68aabb;
+  --color-border: rgba(237, 243, 239, 0.13);
+  --color-shadow: rgba(0, 0, 0, 0.34);
+  color-scheme: dark;
+}
+
 html {
   direction: rtl;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -18,15 +41,96 @@ body {
   min-width: 320px;
   min-height: 100vh;
   min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(35, 100, 119, 0.12), transparent 32rem),
+    linear-gradient(135deg, var(--color-paper), #eef5f2);
+  font-family: Tajawal, Arial, sans-serif;
+}
+
+:root.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(104, 170, 187, 0.12), transparent 30rem),
+    linear-gradient(135deg, #101714, #111d21 52%, #151915);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(185, 137, 69, 0.28);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(185, 137, 69, 0.42);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  color: var(--color-ink);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: color-mix(in srgb, var(--color-olive) 58%, transparent);
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead th {
+  color: var(--color-ink);
+  font-weight: 800;
+}
+
+tbody tr {
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--color-gold) 7%, transparent);
+}
+
+[dir="ltr"] {
+  text-align: left;
+}
+
+[dir="rtl"] {
+  text-align: right;
 }
 
 .sidebar-scrollbar {
-  scrollbar-color: rgba(185, 137, 69, 0.42) transparent;
+  scrollbar-color: rgba(215, 173, 114, 0.32) transparent;
   scrollbar-width: thin;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar {
-  width: 0.45rem;
+  width: 0.35rem;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-track {
@@ -34,15 +138,291 @@ body {
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 999px;
 }
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(185, 137, 69, 0.48);
+  background: rgba(215, 173, 114, 0.42);
 }
 
 .booking-dialog-shell {
   height: min(900px, calc(100vh - 2rem));
   max-height: calc(100vh - 2rem);
+}
+
+.booking-table-scroll {
+  scrollbar-color: rgba(83, 106, 85, 0.38) transparent;
+  scrollbar-width: thin;
+}
+
+.booking-table-scroll::-webkit-scrollbar {
+  height: 0.42rem;
+}
+
+.booking-table-scroll::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-paper) 70%, transparent);
+  border-radius: 999px;
+}
+
+.booking-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(83, 106, 85, 0.38);
+  border-radius: 999px;
+}
+
+.booking-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(185, 137, 69, 0.5);
+}
+
+.booking-list-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.booking-list-table thead {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-paper) 78%, white), var(--color-surface));
+}
+
+.booking-list-table th {
+  padding: 0.95rem 1.15rem;
+  color: color-mix(in srgb, var(--color-olive) 88%, var(--color-ink));
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.booking-list-table td {
+  padding: 1.05rem 1.15rem;
+  vertical-align: middle;
+}
+
+.booking-list-table tbody tr {
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  box-shadow: inset 0 -1px 0 var(--color-border);
+}
+
+.booking-list-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-gold) 6%, var(--color-surface));
+}
+
+.booking-list-table td:first-child button {
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  background: color-mix(in srgb, var(--color-sea) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-sea) 18%, transparent);
+  color: var(--color-sea);
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.booking-list-table td p {
+  margin: 0;
+  line-height: 1.65;
+}
+
+.booking-table-actions {
+  min-width: 15rem;
+  white-space: nowrap;
+}
+
+.booking-table-actions > button,
+.booking-table-actions > select {
+  flex: 0 0 auto;
+}
+
+.booking-table-actions select {
+  width: 8rem;
+  box-shadow: none;
+}
+
+.booking-card-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.booking-card-grid button.w-10 {
+  font-size: 0;
+}
+
+.booking-card-grid button.w-10 svg {
+  width: 1.0625rem;
+  height: 1.0625rem;
+}
+
+@media (min-width: 1024px) {
+  .booking-card-grid {
+    grid-template-columns: minmax(150px, 0.9fr) minmax(220px, 1.2fr) minmax(260px, 1.35fr) minmax(180px, 1fr) minmax(150px, 0.8fr);
+    align-items: center;
+  }
+
+  .booking-card-identity {
+    grid-column: span 2;
+  }
+}
+
+/* Theme-aware overrides for the existing Tailwind utility-heavy screens. */
+.text-ink {
+  color: var(--color-ink) !important;
+}
+
+.text-olive {
+  color: var(--color-olive) !important;
+}
+
+.text-gold {
+  color: var(--color-gold) !important;
+}
+
+.text-sea {
+  color: var(--color-sea) !important;
+}
+
+.bg-paper {
+  background-color: var(--color-paper) !important;
+}
+
+.bg-white {
+  background-color: var(--color-surface) !important;
+}
+
+.bg-white\/90,
+.bg-white\/95,
+.bg-white\/85,
+.bg-white\/70 {
+  background-color: color-mix(in srgb, var(--color-surface) 90%, transparent) !important;
+}
+
+.border-olive\/10,
+.border-olive\/15,
+.border-olive\/20,
+.border-olive\/25,
+.border-olive\/30 {
+  border-color: var(--color-border) !important;
+}
+
+.shadow-ink\/5,
+.shadow-ink\/10,
+.shadow-ink\/15,
+.shadow-ink\/20,
+.shadow-ink\/25,
+.shadow-ink\/30 {
+  --tw-shadow-color: var(--color-shadow) !important;
+}
+
+.dark .bg-\[linear-gradient\(135deg\2c \#fbf7ee_0\%\2c \#f4f0e7_48\%\2c \#eef5f2_100\%\)\],
+.dark .bg-\[linear-gradient\(135deg\2c \#fbf7ee_0\%\2c \#f2eee3_46\%\2c \#eef5f2_100\%\)\] {
+  background-image: linear-gradient(135deg, #101714 0%, #121c19 48%, #111d21 100%) !important;
+}
+
+.dark .bg-\[linear-gradient\(160deg\2c \#10201c_0\%\2c \#16241f_46\%\2c \#0e2a33_100\%\)\],
+.dark .bg-\[linear-gradient\(160deg\2c \#16241f_0\%\2c \#18231f_46\%\2c \#10262d_100\%\)\] {
+  background-image: linear-gradient(160deg, #07100d 0%, #101815 48%, #0a2028 100%) !important;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(127, 29, 29, 0.22) !important;
+}
+
+.dark .text-red-700,
+.dark .text-red-800 {
+  color: #fca5a5 !important;
+}
+
+.dark .border-red-200 {
+  border-color: rgba(252, 165, 165, 0.28) !important;
+}
+
+.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.28) !important;
+}
+
+.dark .text-emerald-700,
+.dark .text-emerald-800 {
+  color: #86efac !important;
+}
+
+.dark .border-emerald-200 {
+  border-color: rgba(134, 239, 172, 0.25) !important;
+}
+
+.dark .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.28) !important;
+}
+
+.dark .text-amber-800 {
+  color: #fcd34d !important;
+}
+
+.dark .border-amber-200 {
+  border-color: rgba(252, 211, 77, 0.25) !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: color-mix(in srgb, var(--color-surface-soft) 92%, transparent) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-ink) !important;
+}
+
+.dark input:disabled,
+.dark select:disabled,
+.dark textarea:disabled {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark table,
+.dark tbody,
+.dark tr,
+.dark td,
+.dark th {
+  border-color: var(--color-border) !important;
+}
+
+.dark thead,
+.dark .bg-olive\/10 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .bg-olive\/20,
+.dark .bg-olive\/25 {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+.dark .bg-sea\/10,
+.dark .bg-sea\/5 {
+  background-color: rgba(104, 170, 187, 0.12) !important;
+}
+
+.dark .bg-gold\/10,
+.dark .bg-gold\/15 {
+  background-color: rgba(215, 173, 114, 0.13) !important;
+}
+
+.dark .border-white\/70 {
+  border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+@media (max-width: 640px) {
+  .booking-dialog-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0 !important;
+  }
+
+  table {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
